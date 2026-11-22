@@ -125,10 +125,14 @@ pub fn handle_events(app: &mut App) -> io::Result<UserAction> {
                     KeyCode::Left => app.prev_tab(),
 
                     // Global Actions
-                    KeyCode::Char('f') | KeyCode::Char('F') => {
+                    KeyCode::Char('f') | KeyCode::Char('F')
+                        if !key.modifiers.contains(KeyModifiers::CONTROL) =>
+                    {
                         return Ok(UserAction::StartFullScan)
                     }
-                    KeyCode::Char('s') | KeyCode::Char('S') => {
+                    KeyCode::Char('s') | KeyCode::Char('S')
+                        if !key.modifiers.contains(KeyModifiers::CONTROL) =>
+                    {
                         return Ok(UserAction::StartSingleScan)
                     }
 
@@ -147,12 +151,39 @@ pub fn handle_events(app: &mut App) -> io::Result<UserAction> {
                     KeyCode::PageDown => {
                         let total = app.get_filtered_findings_count();
                         if total > 0 {
+                            let page = app.visible_findings_rows.get().max(10);
                             app.selected_log_index =
-                                (app.selected_log_index + 15).min(total.saturating_sub(1));
+                                (app.selected_log_index + page).min(total.saturating_sub(1));
                         }
                     }
                     KeyCode::PageUp => {
-                        app.selected_log_index = app.selected_log_index.saturating_sub(15);
+                        let page = app.visible_findings_rows.get().max(10);
+                        app.selected_log_index = app.selected_log_index.saturating_sub(page);
+                    }
+                    KeyCode::Char('d') | KeyCode::Char('f')
+                        if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                    {
+                        let total = app.get_filtered_findings_count();
+                        if total > 0 {
+                            let page = app.visible_findings_rows.get().max(10);
+                            app.selected_log_index =
+                                (app.selected_log_index + page).min(total.saturating_sub(1));
+                        }
+                    }
+                    KeyCode::Char('u') | KeyCode::Char('b')
+                        if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                    {
+                        let page = app.visible_findings_rows.get().max(10);
+                        app.selected_log_index = app.selected_log_index.saturating_sub(page);
+                    }
+                    KeyCode::Home => {
+                        app.selected_log_index = 0;
+                    }
+                    KeyCode::End => {
+                        let total = app.get_filtered_findings_count();
+                        if total > 0 {
+                            app.selected_log_index = total.saturating_sub(1);
+                        }
                     }
                     _ => {}
                 }

@@ -62,6 +62,8 @@ pub struct App {
     pub filtered_log_indices: Vec<usize>,
     pub port_stats: std::collections::HashMap<u16, (usize, usize)>,
     pub selected_log_index: usize,
+    pub findings_scroll_offset: std::cell::Cell<usize>,
+    pub visible_findings_rows: std::cell::Cell<usize>,
 
     // DB Data Cache for TUI
     pub prefixes: Vec<Prefix>,
@@ -114,6 +116,8 @@ impl App {
             filtered_log_indices: Vec::new(),
             port_stats: std::collections::HashMap::new(),
             selected_log_index: 0,
+            findings_scroll_offset: std::cell::Cell::new(0),
+            visible_findings_rows: std::cell::Cell::new(25),
             prefixes: Vec::new(),
             ports: Vec::new(),
             selected_prefix_index: 0,
@@ -163,6 +167,7 @@ impl App {
         self.filtered_log_indices.clear();
         self.port_stats.clear();
         self.selected_log_index = 0;
+        self.findings_scroll_offset.set(0);
         self.stats = ScanStats::default();
         self.stats.start_time = Some(std::time::Instant::now());
     }
@@ -331,5 +336,75 @@ mod tests {
         assert!(!app.ports.iter().any(|p| p.port == 80 || p.port == 443));
         assert!(app.ports.iter().any(|p| p.port == 53));
         assert!(app.ports.iter().any(|p| p.port == 123));
+    }
+
+    #[test]
+    fn test_findings_viewport_free_scrolling_and_page_nav() {
+        let mut app = App::new(
+            "test.db".to_string(),
+            "test_key".to_string(),
+            256,
+            3,
+            2,
+            false,
+            "report.pdf".to_string(),
+            None,
+            None,
+            false,
+            None,
+        );
+
+        // Simulate 100 findings
+        app.filtered_log_indices = (0..100).collect();
+        let visible_height = 30;
+        app.visible_findings_rows.set(visible_height);
+
+        let calculate_start_idx = |app: &App, visible_height: usize| -> usize {
+            let total = app.filtered_log_indices.len();
+            let selected_idx = app.selected_log_index.min(total.saturating_sub(1));
+            let max_start = total.saturating_sub(visible_height);
+            let mut offset = app.findings_scroll_offset.get();
+
+            if selected_idx < offset {
+                offset = selected_idx;
+            } else if selected_idx >= offset + visible_height {
+                offset = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+            }
+            let clamped = offset.min(max_start);
+            app.findings_scroll_offset.set(clamped);
+            clamped
+        };
+
+        // 1. Initially at index 0, start_idx must be 0
+        assert_eq!(calculate_start_idx(&app, visible_height), 0);
+
+        // 2. Cursor moves down to middle of screen (index 15) — must NOT scroll or lock in middle
+        app.selected_log_index = 15;
+        assert_eq!(calculate_start_idx(&app, visible_height), 0);
+        assert_eq!(app.findings_scroll_offset.get(), 0);
+
+        // 3. Cursor reaches bottom edge of screen (index 29) — still at start_idx 0
+        app.selected_log_index = 29;
+        assert_eq!(calculate_start_idx(&app, visible_height), 0);
+
+        // 4. Cursor goes beyond bottom edge (index 30) — viewport scrolls by 1
+        app.selected_log_index = 30;
+        assert_eq!(calculate_start_idx(&app, visible_height), 1);
+        assert_eq!(app.findings_scroll_offset.get(), 1);
+
+        // 5. PageDown jumps by visible_height (30 rows): index goes to 60
+        let page = app.visible_findings_rows.get().max(10);
+        app.selected_log_index = (app.selected_log_index + page).min(100 - 1);
+        assert_eq!(app.selected_log_index, 60);
+        assert_eq!(calculate_start_idx(&app, visible_height), 31);
+
+        // 6. PageUp recedes by visible_height (30 rows): index goes back to 30
+        app.selected_log_index = app.selected_log_index.saturating_sub(page);
+        assert_eq!(app.selected_log_index, 30);
+        assert_eq!(calculate_start_idx(&app, visible_height), 30);
+
+        // 7. Cursor moves UP within visible viewport (index 25)
+        app.selected_log_index = 25;
+        assert_eq!(calculate_start_idx(&app, visible_height), 25);
     }
 }

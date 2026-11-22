@@ -285,59 +285,42 @@ pub fn generate_pdf(
         w.skip(BODY_LH);
     }
 
-    // ── Detailed Results ───────────────────────────────────────────
+    // ── Per-Port Detail Section ────────────────────────────────────
     w.new_page();
-    w.text(
-        "Detailed Results - Vulnerable Ports",
-        HEADING_SIZE,
-        HEADING_LH,
-        true,
-    );
-    w.hline();
-    w.skip(2.0);
-
-    // Table header
-    let hdr_x = MARGIN;
-    w.text_at("IP", SMALL_SIZE, hdr_x + COL_IP, true);
-    w.text_at("Port", SMALL_SIZE, hdr_x + COL_PORT, true);
-    w.text_at("Proto", SMALL_SIZE, hdr_x + COL_PROTO, true);
-    w.text_at("Service", SMALL_SIZE, hdr_x + COL_SVC, true);
-    w.text_at("Risk Description", SMALL_SIZE, hdr_x + COL_DESC, true);
-    w.skip(SMALL_LH);
+    w.text("Vulnerable Port Details", HEADING_SIZE, HEADING_LH, true);
     w.hline();
 
-    for result in report.vulnerable_results() {
-        let desc_lines = wrap_text(&result.description, DESC_MAX_CHARS);
-        let row_height = SMALL_LH * desc_lines.len() as f32 + 1.0;
-        w.ensure_space(row_height + 2.0);
+    // Group vulnerable results by (port, protocol, service_name) -> (description, set of IPs)
+    let mut by_port: std::collections::BTreeMap<
+        (u16, String, String),
+        (String, std::collections::BTreeSet<std::net::IpAddr>),
+    > = std::collections::BTreeMap::new();
 
-        w.text_at(&result.ip.to_string(), SMALL_SIZE, hdr_x + COL_IP, false);
-        w.text_at(
-            &result.port.to_string(),
-            SMALL_SIZE,
-            hdr_x + COL_PORT,
-            false,
+    for r in report.vulnerable_results() {
+        let key = (r.port, r.protocol.to_uppercase(), r.service_name.clone());
+        let entry = by_port
+            .entry(key)
+            .or_insert_with(|| (r.description.clone(), std::collections::BTreeSet::new()));
+        entry.1.insert(r.ip);
+    }
+
+    for ((port, protocol, service), (description, ips)) in &by_port {
+        w.ensure_space(SUBHEADING_LH * 2.0 + SMALL_LH * 2.0);
+        w.skip(4.0);
+
+        let header = format!(
+            "Port: {}/{} ({}) - {}",
+            port, protocol, service, description
         );
-        w.text_at(
-            &result.protocol.to_uppercase(),
-            SMALL_SIZE,
-            hdr_x + COL_PROTO,
-            false,
-        );
-        w.text_at(&result.service_name, SMALL_SIZE, hdr_x + COL_SVC, false);
-
-        // First line of description on same row
-        if let Some(first) = desc_lines.first() {
-            w.text_at(first, SMALL_SIZE, hdr_x + COL_DESC, false);
+        let header_lines = wrap_text(&header, 75);
+        for line in &header_lines {
+            w.text(line, SUBHEADING_SIZE, SUBHEADING_LH, true);
         }
-        w.skip(SMALL_LH);
 
-        // Remaining description lines
-        for line in desc_lines.iter().skip(1) {
-            w.text_at(line, SMALL_SIZE, hdr_x + COL_DESC, false);
-            w.skip(SMALL_LH);
+        for ip in ips {
+            w.ensure_space(SMALL_LH + 1.0);
+            w.text(&format!("  * {}", ip), SMALL_SIZE, SMALL_LH, false);
         }
-        w.skip(1.0); // Row spacing
     }
 
     // ── Per-IP Detail Section ──────────────────────────────────────
@@ -439,10 +422,11 @@ pub fn generate_pdf(
     // ── PHP2Shell Advisory & Mitigation Section (if --check-php was used) ──
     if report.check_php || report.has_php_findings() {
         w.new_page();
+        w.text("PHP Security Advisory", HEADING_SIZE, HEADING_LH, true);
         w.text(
-            "PHP Security Advisory (CVE-2026-109618 / CVE-2026-109619 / CVE-2026-126714)",
-            HEADING_SIZE,
-            HEADING_LH,
+            "CVE-2026-109618 / CVE-2026-109619 / CVE-2026-126714",
+            SUBHEADING_SIZE,
+            SUBHEADING_LH,
             true,
         );
         w.hline();
@@ -528,4 +512,68 @@ pub fn generate_pdf(
 
     w.save(output_path)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scanner::result::{PortStatus, ProbeResult, ScanReport};
+    use chrono::Utc;
+    use std::net::IpAddr;
+
+    #[test]
+    fn test_generate_pdf_vulnerable_port_and_ip_details() {
+        let mut report = ScanReport::new(
+            "test_scan_01".to_string(),
+            vec!["45.185.48.0/24".to_string()],
+        );
+        report.results.push(ProbeResult {
+            ip: "45.185.48.1".parse::<IpAddr>().unwrap(),
+            port: 161,
+            protocol: "udp".to_string(),
+            service_name: "SNMP".to_string(),
+            description: "Simple Network Management Protocol - 'public' community exposes data and amplifies up to 6.3x".to_string(),
+            status: PortStatus::Open,
+            response_time_ms: Some(15),
+            timestamp: Utc::now(),
+        });
+        report.results.push(ProbeResult {
+            ip: "45.185.48.104".parse::<IpAddr>().unwrap(),
+            port: 161,
+            protocol: "udp".to_string(),
+            service_name: "SNMP".to_string(),
+            description: "Simple Network Management Protocol - 'public' community exposes data and amplifies up to 6.3x".to_string(),
+            status: PortStatus::Open,
+            response_time_ms: Some(20),
+            timestamp: Utc::now(),
+        });
+        report.results.push(ProbeResult {
+            ip: "45.185.49.66".parse::<IpAddr>().unwrap(),
+            port: 53,
+            protocol: "udp".to_string(),
+            service_name: "DNS".to_string(),
+            description: "Domain Name System - open resolvers can amplify traffic up to 54x"
+                .to_string(),
+            status: PortStatus::Open,
+            response_time_ms: Some(10),
+            timestamp: Utc::now(),
+        });
+        report.check_php = true;
+        report.finalize();
+
+        let config = AppConfig::default();
+        let tmp_pdf = std::env::temp_dir().join("test_ampscan_report_ports.pdf");
+        let tmp_path = tmp_pdf.to_string_lossy().to_string();
+
+        let res = generate_pdf(
+            &report,
+            &tmp_path,
+            Some("Test Client"),
+            Some("Admin"),
+            &config,
+        );
+        assert!(res.is_ok(), "PDF generation failed: {:?}", res.err());
+        assert!(tmp_pdf.exists());
+        let _ = std::fs::remove_file(&tmp_pdf);
+    }
 }

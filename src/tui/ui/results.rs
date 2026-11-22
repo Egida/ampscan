@@ -34,9 +34,9 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
 
     let total_findings = app.filtered_log_indices.len();
 
-    // Dynamically calculate visible rows based on left component height
+    // Dynamically calculate visible rows based on left component height (border + header + margin)
     let visible_height = (left_area.height as usize).saturating_sub(4);
-    let half_view = visible_height / 2;
+    app.visible_findings_rows.set(visible_height);
 
     let selected_idx = if total_findings == 0 {
         0
@@ -44,12 +44,25 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
         app.selected_log_index.min(total_findings.saturating_sub(1))
     };
 
-    let start_idx = if total_findings <= visible_height {
+    // Free cursor scrolling viewport:
+    // The cursor moves freely from top to bottom across the visible screen without being locked in the middle.
+    // Viewport only scrolls down when the selection reaches the bottom edge, and up when reaching the top edge.
+    let start_idx = if total_findings <= visible_height || visible_height == 0 {
+        app.findings_scroll_offset.set(0);
         0
     } else {
-        let max_start = total_findings - visible_height;
-        let ideal_start = selected_idx.saturating_sub(half_view);
-        ideal_start.min(max_start)
+        let max_start = total_findings.saturating_sub(visible_height);
+        let mut offset = app.findings_scroll_offset.get();
+
+        if selected_idx < offset {
+            offset = selected_idx;
+        } else if selected_idx >= offset + visible_height {
+            offset = selected_idx.saturating_sub(visible_height.saturating_sub(1));
+        }
+
+        let clamped = offset.min(max_start);
+        app.findings_scroll_offset.set(clamped);
+        clamped
     };
 
     let rows = app

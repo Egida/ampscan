@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2026-11-22
+
+### Changed
+- **PDF Report Layout Reorganization**:
+  - Removed the legacy flat column table `"Detailed Results - Vulnerable Ports"`.
+  - Removed obsolete column positioning constants (`COL_IP`, `COL_PORT`, `COL_PROTO`, `COL_SVC`, `COL_DESC`, `DESC_MAX_CHARS`) from `src/report/writer.rs`.
+  - Introduced new `"Vulnerable Port Details"` section grouping open amplification results by port:
+    - Bold subheading with formatted port, protocol, service and description: `Port: {port}/{protocol} ({service}) - {description}`.
+    - Bulleted listing of affected IP addresses (`* <IP>`) under each port header without latency metrics, matching the inverted format of the `"Vulnerable IP Details"` section.
+  - Retained `"Vulnerable IP Details"` section intact.
+  - Added dedicated unit regression test `test_generate_pdf_vulnerable_port_and_ip_details`.
+
+### Fixed
+- **PDF Report PHP Advisory Heading Truncation**:
+  - Restructured long PHP Security Advisory heading to prevent horizontal clipping off the right margin of the A4 page. Split into main section heading `PHP Security Advisory` (16pt bold) and descriptive CVE subheading `CVE-2026-109618 / CVE-2026-109619 / CVE-2026-126714` (12pt bold).
+- **TUI Results Viewer Cursor Navigation & Viewport Scrolling**:
+  - Eliminated cursor locking at screen midpoint (`half_view` centering artifact) in the Results Viewer tab. Cursor now navigates freely top-to-bottom across the full visible viewport height, only triggering viewport scroll when crossing viewport boundaries.
+  - Added full PageUp (`PageUp`, `Ctrl+B`, `Ctrl+U`) and PageDown (`PageDown`, `Ctrl+F`, `Ctrl+D`) pagination using the dynamic visible viewport row count.
+  - Added `Home` (jump to first finding) and `End` (jump to last finding) navigation support.
+  - Isolated global `[F]` (Full Scan) and `[S]` (Single Scan) trigger keys to prevent conflict with terminal control combinations (`Ctrl+F`).
+  - Added dedicated regression unit test `test_findings_viewport_free_scrolling_and_page_nav`.
+
 ## [1.5.3] - 2026-11-21
 
 ### Added

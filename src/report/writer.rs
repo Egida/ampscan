@@ -27,14 +27,6 @@ pub const SUBHEADING_LH: f32 = 5.5;
 pub const BODY_LH: f32 = 4.5;
 pub const SMALL_LH: f32 = 3.5;
 
-// Table column positions (X offset from left margin) for the results table
-pub const COL_IP: f32 = 0.0;
-pub const COL_PORT: f32 = 38.0;
-pub const COL_PROTO: f32 = 55.0;
-pub const COL_SVC: f32 = 72.0;
-pub const COL_DESC: f32 = 105.0;
-pub const DESC_MAX_CHARS: usize = 55;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // PDF Writer helper
 // ═══════════════════════════════════════════════════════════════════════════
