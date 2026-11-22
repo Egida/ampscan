@@ -71,8 +71,7 @@ pub async fn run_scan_with_channel(
                 port: 80,
                 protocol: "tcp".to_string(),
                 name: "HTTP".to_string(),
-                description: "HTTP - PHP2Shell check (CVE-2026-109618 / CVE-2026-109619)"
-                    .to_string(),
+                description: "HTTP - PHP RCE check (PHP2Shell / phpAfterShell)".to_string(),
                 probe_type: "php_http".to_string(),
                 probe_payload: None,
                 enabled: true,
@@ -86,8 +85,7 @@ pub async fn run_scan_with_channel(
                 port: 443,
                 protocol: "tcp".to_string(),
                 name: "HTTPS".to_string(),
-                description: "HTTPS - PHP2Shell check (CVE-2026-109618 / CVE-2026-109619)"
-                    .to_string(),
+                description: "HTTPS - PHP RCE check (PHP2Shell / phpAfterShell)".to_string(),
                 probe_type: "php_https".to_string(),
                 probe_payload: None,
                 enabled: true,

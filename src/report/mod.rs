@@ -219,7 +219,7 @@ pub fn generate_pdf(
                 h
             ),
             None => {
-                "Audit Profile: Full Amplification + PHP2Shell (CVE-2026-109618 / CVE-2026-109619)"
+                "Audit Profile: Full Amplification + PHP RCE (CVE-2026-109618/19, CVE-2026-126714)"
                     .to_string()
             }
         };
@@ -440,7 +440,7 @@ pub fn generate_pdf(
     if report.check_php || report.has_php_findings() {
         w.new_page();
         w.text(
-            "PHP2Shell Security Advisory (CVE-2026-109618 / CVE-2026-109619)",
+            "PHP Security Advisory (CVE-2026-109618 / CVE-2026-109619 / CVE-2026-126714)",
             HEADING_SIZE,
             HEADING_LH,
             true,
@@ -448,7 +448,7 @@ pub fn generate_pdf(
         w.hline();
         w.skip(2.0);
 
-        let advisory_p1 = "Critical vulnerabilities disclosed in October 2026 (CVSS 9.2) affect the core PHP interpreter from version 5.4 up to 8.5.11 (CVE-2026-109618 memory corruption on Out-Of-Memory and CVE-2026-109619 Use-After-Free in worker processes). AmpScan audits these ports using non-intrusive HTTP HEAD banner grabbing without sending exploit payloads.";
+        let advisory_p1 = "Critical vulnerabilities disclosed in October and November 2026 (CVSS 9.2) affect the core PHP interpreter from version 5.4 up to 8.5.12 (PHP2Shell CVE-2026-109618/19 and phpAfterShell CVE-2026-126714 session corruption RCE). AmpScan audits these ports using non-intrusive HTTP HEAD banner grabbing without sending exploit payloads.";
         for line in wrap_text(advisory_p1, 95) {
             w.text(&line, BODY_SIZE, BODY_LH, false);
         }
@@ -460,10 +460,10 @@ pub fn generate_pdf(
             SUBHEADING_LH,
             true,
         );
-        w.text("  * Branch 8.5: PHP >= 8.5.12", BODY_SIZE, BODY_LH, false);
-        w.text("  * Branch 8.4: PHP >= 8.4.27", BODY_SIZE, BODY_LH, false);
-        w.text("  * Branch 8.3: PHP >= 8.3.36", BODY_SIZE, BODY_LH, false);
-        w.text("  * Branch 8.2: PHP >= 8.2.35", BODY_SIZE, BODY_LH, false);
+        w.text("  * Branch 8.5: PHP >= 8.5.13", BODY_SIZE, BODY_LH, false);
+        w.text("  * Branch 8.4: PHP >= 8.4.28", BODY_SIZE, BODY_LH, false);
+        w.text("  * Branch 8.3: PHP >= 8.3.37", BODY_SIZE, BODY_LH, false);
+        w.text("  * Branch 8.2: PHP >= 8.2.36", BODY_SIZE, BODY_LH, false);
         w.text(
             "  * Versions 8.1, 7.x, 5.x: EOL (No upstream patch - upgrade immediately)",
             BODY_SIZE,

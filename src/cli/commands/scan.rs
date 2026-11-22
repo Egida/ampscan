@@ -118,7 +118,7 @@ pub async fn cmd_scan(cli: &Cli, cmd: &ScanCommands) -> Result<()> {
             if *check_php {
                 println!(
                     "  Audit Profile: {}",
-                    "Full Amplification + PHP2Shell (CVE-2026-109618 / CVE-2026-109619)"
+                    "Full Amplification + PHP RCE (CVE-2026-109618/19, CVE-2026-126714)"
                         .yellow()
                         .bold()
                 );

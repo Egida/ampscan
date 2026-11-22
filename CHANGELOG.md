@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-11-21
+
+### Added
+- **Detection of CVE-2026-126714 (phpAfterShell)**:
+  - Updated passive HTTP/HTTPS PHP probe (`--check-php`) to detect CVE-2026-126714 ("phpAfterShell" - session file corruption RCE, CVSS 9.2).
+  - Elevated patch thresholds across all active branches to match official upstream PHP Foundation security fixes:
+    - Branch 8.5: Patched in `8.5.13` (vulnerable if `< 8.5.13`).
+    - Branch 8.4: Patched in `8.4.28` (vulnerable if `< 8.4.28`).
+    - Branch 8.3: Patched in `8.3.37` (vulnerable if `< 8.3.37`).
+    - Branch 8.2: Patched in `8.2.36` (vulnerable if `< 8.2.36`).
+    - Legacy branches ($\le$ 8.1) remain EOL and permanently vulnerable.
+  - Added dedicated regression unit test `test_cve_2026_126714_phpaftershell_regression` to verify intermediate versions (8.5.12, 8.4.27, 8.3.36, 8.2.35) are strictly reported as `Vulnerable`.
+  - Updated PDF executive advisory section, CLI diagnostic profiles, and TUI labels to reflect both PHP2Shell and phpAfterShell CVEs.
+
+### Security
+- **SQLite / SQLCipher Upstream Security Remediation**:
+  - Upgraded `rusqlite` to `0.43.0` and `sqlcipher-src` to `420.0.0`, eliminating C SQLite vulnerabilities RUSTSEC-2026-0459 and RUSTSEC-2026-0502 (CVE-2026-119375) with zero known security advisories remaining on `cargo audit`.
+
 ## [1.5.2] - 2026-11-04
 
 ### Fixed

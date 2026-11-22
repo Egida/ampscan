@@ -48,7 +48,7 @@ pub fn handle_events(app: &mut App) -> io::Result<UserAction> {
                             if c == 'p' || c == 'P' {
                                 app.toggle_check_php();
                                 app.status_message = Some(format!(
-                                    "PHP2Shell check: {}",
+                                    "PHP RCE check: {}",
                                     if app.check_php {
                                         "ENABLED (80/443)"
                                     } else {

@@ -1,6 +1,6 @@
 [package]
 name = "ampscan"
-version = "1.5.2"
+version = "1.5.3"
 edition = "2021"
 description = "DDoS Amplification Port Testing Tool with TUI"
 authors = ["Marcelo Gondim"]
@@ -63,10 +63,10 @@ libc = "0.2"
 zeroize = { version = "1", features = ["derive"] }
 
 [target.'cfg(windows)'.dependencies]
-rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.43", features = ["bundled-sqlcipher-vendored-openssl"] }
 
 [target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies]
-rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.43", features = ["bundled-sqlcipher-vendored-openssl"] }
 
 [target.'cfg(all(not(windows), not(all(target_os = "linux", target_arch = "aarch64"))))'.dependencies]
-rusqlite = { version = "0.32", features = ["bundled-sqlcipher"] }
+rusqlite = { version = "0.43", features = ["bundled-sqlcipher"] }

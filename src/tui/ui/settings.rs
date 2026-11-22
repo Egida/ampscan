@@ -75,7 +75,7 @@ pub fn render_settings(frame: &mut Frame, app: &App, area: Rect) {
         Line::from("• Use UP/DOWN arrows to navigate between setting fields."),
         Line::from("• Type directly to edit max concurrency, timeout or retries per probe."),
         Line::from(vec![
-            Span::raw("• PHP2Shell Audit (80/443): "),
+            Span::raw("• PHP RCE Audit (80/443): "),
             if app.check_php {
                 Span::styled(
                     "ENABLED (Press 'P' to toggle)",

@@ -199,7 +199,7 @@ Tests all prefixes and ports configured in the database, or scans a manually spe
 *   `--retries <N>`: Number of retries for UDP probes (default: `2`).
 *   `--output <PATH>`: Name of the PDF file to be generated (default: `ampscan_report.pdf`).
 *   `--prefix <CIDR>`: Manual network prefix to scan (e.g.: `192.168.1.0/24`). **Runs in Zero-DB mode if `--db-path` is omitted** (uses the built-in 23 amplification ports directly).
-*   `--check-php`: Injects passive auditing for `80/tcp` (HTTP) and `443/tcp` (HTTPS) to detect critical PHP2Shell vulnerabilities (CVE-2026-109618 / CVE-2026-109619).
+*   `--check-php`: Injects passive auditing for `80/tcp` (HTTP) and `443/tcp` (HTTPS) to detect critical PHP RCE vulnerabilities (PHP2Shell CVE-2026-109618/19 & phpAfterShell CVE-2026-126714).
 *   `--http-host <HOST>`: Specifies a custom HTTP `Host` header and TLS Server Name Indication (SNI) for `--check-php` probes, bypassing CDN/WAF default vhosts.
 *   `--pdf`: Enable automatic PDF report generation.
 
@@ -221,7 +221,7 @@ Tests all amplification ports against a single target IP with live terminal feed
 # 1. Standard single IP scan across all 23 DDoS amplification ports:
 ampscan scan single 1.1.1.1 --timeout 2
 
-# 2. Single IP scan with PHP2Shell audit (23 DDoS ports + 80/tcp + 443/tcp):
+# 2. Single IP scan with PHP RCE audit (23 DDoS ports + 80/tcp + 443/tcp):
 ampscan scan single 198.51.100.10 --check-php
 
 # 3. Single IP scan behind CDN/WAF with custom Host header and TLS SNI:

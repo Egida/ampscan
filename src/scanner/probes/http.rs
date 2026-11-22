@@ -1,4 +1,6 @@
-//! HTTP and HTTPS banner grabber probe for PHP2Shell (CVE-2026-109618 / CVE-2026-109619) detection
+//! HTTP and HTTPS banner grabber probe for PHP RCE detection:
+//! - PHP2Shell (CVE-2026-109618 / CVE-2026-109619)
+//! - phpAfterShell (CVE-2026-126714)
 //!
 //! Executes non-intrusive HEAD requests on open ports 80 and 443, inspecting response
 //! headers (X-Powered-By and Server) without sending memory corruption or exploit payloads.
@@ -102,7 +104,7 @@ pub fn parse_php_version_from_headers(headers: &str) -> PhpAssessment {
 }
 
 /// Assess vulnerability status based on PHP Foundation advisory criteria for
-/// CVE-2026-109618 (Out-Of-Memory corruption) and CVE-2026-109619 (Use-After-Free worker).
+/// PHP2Shell (CVE-2026-109618, CVE-2026-109619) and phpAfterShell (CVE-2026-126714).
 pub fn assess_php_version(version: &str) -> PhpAssessment {
     let parts: Vec<u32> = version
         .split('.')
@@ -118,19 +120,19 @@ pub fn assess_php_version(version: &str) -> PhpAssessment {
     let patch = parts.get(2).copied().unwrap_or(0);
 
     // Official Upstream Patch Thresholds:
-    // - Branch 8.5: Vulnerable if < 8.5.12
-    // - Branch 8.4: Vulnerable if < 8.4.27
-    // - Branch 8.3: Vulnerable if < 8.3.36
-    // - Branch 8.2: Vulnerable if < 8.2.35
+    // - Branch 8.5: Vulnerable if < 8.5.13 (Fixed in 8.5.13)
+    // - Branch 8.4: Vulnerable if < 8.4.28 (Fixed in 8.4.28)
+    // - Branch 8.3: Vulnerable if < 8.3.37 (Fixed in 8.3.37)
+    // - Branch 8.2: Vulnerable if < 8.2.36 (Fixed in 8.2.36)
     // - Versions 8.1, 7.x, 5.x: EOL / Unpatched upstream -> Critical Vulnerable
     // - Versions >= 8.6: Patched / Future safe branch
     if major == 8 {
         match minor {
             5 => {
-                if patch < 12 {
+                if patch < 13 {
                     PhpAssessment::Vulnerable {
                         version: version.to_string(),
-                        fixed_in: "8.5.12",
+                        fixed_in: "8.5.13",
                     }
                 } else {
                     PhpAssessment::NotVulnerable {
@@ -139,10 +141,10 @@ pub fn assess_php_version(version: &str) -> PhpAssessment {
                 }
             }
             4 => {
-                if patch < 27 {
+                if patch < 28 {
                     PhpAssessment::Vulnerable {
                         version: version.to_string(),
-                        fixed_in: "8.4.27",
+                        fixed_in: "8.4.28",
                     }
                 } else {
                     PhpAssessment::NotVulnerable {
@@ -151,10 +153,10 @@ pub fn assess_php_version(version: &str) -> PhpAssessment {
                 }
             }
             3 => {
-                if patch < 36 {
+                if patch < 37 {
                     PhpAssessment::Vulnerable {
                         version: version.to_string(),
-                        fixed_in: "8.3.36",
+                        fixed_in: "8.3.37",
                     }
                 } else {
                     PhpAssessment::NotVulnerable {
@@ -163,10 +165,10 @@ pub fn assess_php_version(version: &str) -> PhpAssessment {
                 }
             }
             2 => {
-                if patch < 35 {
+                if patch < 36 {
                     PhpAssessment::Vulnerable {
                         version: version.to_string(),
-                        fixed_in: "8.2.35",
+                        fixed_in: "8.2.36",
                     }
                 } else {
                     PhpAssessment::NotVulnerable {
@@ -176,7 +178,7 @@ pub fn assess_php_version(version: &str) -> PhpAssessment {
             }
             _ if minor <= 1 => PhpAssessment::Vulnerable {
                 version: version.to_string(),
-                fixed_in: "8.2.35+ (8.1 is EOL)",
+                fixed_in: "8.2.36+ (8.1 is EOL)",
             },
             _ => PhpAssessment::NotVulnerable {
                 version: version.to_string(),
@@ -185,7 +187,7 @@ pub fn assess_php_version(version: &str) -> PhpAssessment {
     } else if major < 8 {
         PhpAssessment::Vulnerable {
             version: version.to_string(),
-            fixed_in: "8.2.35+ (Legacy EOL)",
+            fixed_in: "8.2.36+ (Legacy EOL)",
         }
     } else {
         // major > 8
@@ -366,14 +368,17 @@ pub async fn execute_php_probe(
             PortStatus::Open,
             Some(latency_ms),
             format!(
-                "PHP2Shell: PHP {} vulnerable (< {}) - CVE-2026-109618/19",
+                "PHP Vulnerable: PHP {} (< {}) - CVE-2026-109618/19, CVE-2026-126714",
                 version, fixed_in
             ),
         ),
         PhpAssessment::NotVulnerable { version } => (
             PortStatus::OpenProtected,
             Some(latency_ms),
-            format!("PHP {} (patched against CVE-2026-109618/19)", version),
+            format!(
+                "PHP {} (patched against CVE-2026-109618/19, CVE-2026-126714)",
+                version
+            ),
         ),
         PhpAssessment::NoPhpHeader => (
             PortStatus::OpenProtected,
@@ -390,59 +395,59 @@ mod tests {
     #[test]
     fn test_php_version_vulnerable_cases() {
         assert_eq!(
-            assess_php_version("8.5.11"),
+            assess_php_version("8.5.12"),
             PhpAssessment::Vulnerable {
-                version: "8.5.11".to_string(),
-                fixed_in: "8.5.12"
+                version: "8.5.12".to_string(),
+                fixed_in: "8.5.13"
             }
         );
         assert_eq!(
-            assess_php_version("8.4.26"),
+            assess_php_version("8.4.27"),
             PhpAssessment::Vulnerable {
-                version: "8.4.26".to_string(),
-                fixed_in: "8.4.27"
+                version: "8.4.27".to_string(),
+                fixed_in: "8.4.28"
             }
         );
         assert_eq!(
-            assess_php_version("8.3.35"),
+            assess_php_version("8.3.36"),
             PhpAssessment::Vulnerable {
-                version: "8.3.35".to_string(),
-                fixed_in: "8.3.36"
+                version: "8.3.36".to_string(),
+                fixed_in: "8.3.37"
             }
         );
         assert_eq!(
-            assess_php_version("8.2.34"),
+            assess_php_version("8.2.35"),
             PhpAssessment::Vulnerable {
-                version: "8.2.34".to_string(),
-                fixed_in: "8.2.35"
+                version: "8.2.35".to_string(),
+                fixed_in: "8.2.36"
             }
         );
         assert_eq!(
             assess_php_version("8.2.20"),
             PhpAssessment::Vulnerable {
                 version: "8.2.20".to_string(),
-                fixed_in: "8.2.35"
+                fixed_in: "8.2.36"
             }
         );
         assert_eq!(
             assess_php_version("8.1.2"),
             PhpAssessment::Vulnerable {
                 version: "8.1.2".to_string(),
-                fixed_in: "8.2.35+ (8.1 is EOL)"
+                fixed_in: "8.2.36+ (8.1 is EOL)"
             }
         );
         assert_eq!(
             assess_php_version("7.4.33"),
             PhpAssessment::Vulnerable {
                 version: "7.4.33".to_string(),
-                fixed_in: "8.2.35+ (Legacy EOL)"
+                fixed_in: "8.2.36+ (Legacy EOL)"
             }
         );
         assert_eq!(
             assess_php_version("5.6.40"),
             PhpAssessment::Vulnerable {
                 version: "5.6.40".to_string(),
-                fixed_in: "8.2.35+ (Legacy EOL)"
+                fixed_in: "8.2.36+ (Legacy EOL)"
             }
         );
     }
@@ -450,27 +455,27 @@ mod tests {
     #[test]
     fn test_php_version_patched_cases() {
         assert_eq!(
-            assess_php_version("8.5.12"),
+            assess_php_version("8.5.13"),
             PhpAssessment::NotVulnerable {
-                version: "8.5.12".to_string()
+                version: "8.5.13".to_string()
             }
         );
         assert_eq!(
-            assess_php_version("8.4.27"),
+            assess_php_version("8.4.28"),
             PhpAssessment::NotVulnerable {
-                version: "8.4.27".to_string()
+                version: "8.4.28".to_string()
             }
         );
         assert_eq!(
-            assess_php_version("8.3.36"),
+            assess_php_version("8.3.37"),
             PhpAssessment::NotVulnerable {
-                version: "8.3.36".to_string()
+                version: "8.3.37".to_string()
             }
         );
         assert_eq!(
-            assess_php_version("8.2.35"),
+            assess_php_version("8.2.36"),
             PhpAssessment::NotVulnerable {
-                version: "8.2.35".to_string()
+                version: "8.2.36".to_string()
             }
         );
         assert_eq!(
@@ -482,21 +487,55 @@ mod tests {
     }
 
     #[test]
+    fn test_cve_2026_126714_phpaftershell_regression() {
+        // Versions previously considered patched under PHP2Shell (CVE-2026-109618/19)
+        // must now be correctly assessed as Vulnerable under phpAfterShell (CVE-2026-126714).
+        assert_eq!(
+            assess_php_version("8.5.12"),
+            PhpAssessment::Vulnerable {
+                version: "8.5.12".to_string(),
+                fixed_in: "8.5.13"
+            }
+        );
+        assert_eq!(
+            assess_php_version("8.4.27"),
+            PhpAssessment::Vulnerable {
+                version: "8.4.27".to_string(),
+                fixed_in: "8.4.28"
+            }
+        );
+        assert_eq!(
+            assess_php_version("8.3.36"),
+            PhpAssessment::Vulnerable {
+                version: "8.3.36".to_string(),
+                fixed_in: "8.3.37"
+            }
+        );
+        assert_eq!(
+            assess_php_version("8.2.35"),
+            PhpAssessment::Vulnerable {
+                version: "8.2.35".to_string(),
+                fixed_in: "8.2.36"
+            }
+        );
+    }
+
+    #[test]
     fn test_parse_headers() {
         let headers_x_powered = "HTTP/1.1 200 OK\r\nDate: Sun, 01 Nov 2026\r\nX-Powered-By: PHP/8.2.20\r\nContent-Type: text/html\r\n\r\n";
         assert_eq!(
             parse_php_version_from_headers(headers_x_powered),
             PhpAssessment::Vulnerable {
                 version: "8.2.20".to_string(),
-                fixed_in: "8.2.35"
+                fixed_in: "8.2.36"
             }
         );
 
-        let headers_server = "HTTP/1.1 200 OK\r\nServer: Apache/2.4.62 (Debian) PHP/8.3.36\r\nContent-Type: text/html\r\n\r\n";
+        let headers_server = "HTTP/1.1 200 OK\r\nServer: Apache/2.4.62 (Debian) PHP/8.3.37\r\nContent-Type: text/html\r\n\r\n";
         assert_eq!(
             parse_php_version_from_headers(headers_server),
             PhpAssessment::NotVulnerable {
-                version: "8.3.36".to_string()
+                version: "8.3.37".to_string()
             }
         );
 
