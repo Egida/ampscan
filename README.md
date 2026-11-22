@@ -1,6 +1,30 @@
-# AmpScan — Usage Manual and User Guide [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=flat&logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=7LD8SPXNF2KH2&no_recurring=0&item_name=Sua+contribui%C3%A7%C3%A3o+ajuda+a+manter+meu+estoque+de+caf%C3%A9+em+dia+%3A%29&currency_code=BRL)
+# AmpScan — Usage Manual and User Guide
 
 **AmpScan** is a high-performance command-line (CLI) tool written in Rust, designed to audit networks and identify open and misconfigured ports that could be exploited in **DDoS amplification** attacks across IPv4 and IPv6 protocols.
+
+---
+
+### ☕ Support the Project
+
+If **AmpScan** is useful for your infrastructure or security audits, consider supporting the continuous development and maintenance of the tool:
+
+#### 🌐 Donate via PayPal (International / Credit Card)
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=7LD8SPXNF2KH2&no_recurring=0&item_name=Support+AmpScan+development&currency_code=BRL)
+
+#### ⚡ Donate via PIX (Brazil - Instant Payment)
+
+<img src="pix_qr.png" width="220" alt="PIX QR Code — gondim@gmail.com" />
+
+* **PIX Key (Email):** `gondim@gmail.com`
+* **Beneficiary:** Marcelo Gondim
+
+<details>
+<summary>📋 <i>Click to reveal and copy the raw <b>PIX Copy and Paste code</b> (EMV payload)</i></summary>
+
+```text
+00020126380014br.gov.bcb.pix0116gondim@gmail.com5204000053039865802BR5914MARCELO GONDIM6014RIO DE JANEIRO62070503***6304AF6F
+```
+</details>
 
 ---
 
