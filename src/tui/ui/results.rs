@@ -86,6 +86,12 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
+                PortStatus::OpenNoPhp => (
+                    "Open (No PHP)",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 _ => ("Other", Style::default().fg(Color::DarkGray)),
             };
 

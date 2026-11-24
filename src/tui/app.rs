@@ -181,6 +181,7 @@ impl App {
             result.status,
             crate::scanner::result::PortStatus::Open
                 | crate::scanner::result::PortStatus::OpenProtected
+                | crate::scanner::result::PortStatus::OpenNoPhp
         );
 
         match &result.status {
@@ -193,6 +194,10 @@ impl App {
                 self.stats.protected_count += 1;
                 let entry = self.port_stats.entry(result.port).or_default();
                 entry.1 += 1;
+            }
+            crate::scanner::result::PortStatus::OpenNoPhp => {
+                // Open web port without PHP: registered in stats list with 0 vuln / 0 prot
+                self.port_stats.entry(result.port).or_default();
             }
             _ => self.stats.closed_count += 1,
         }

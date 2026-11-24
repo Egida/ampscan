@@ -419,8 +419,8 @@ pub fn generate_pdf(
         }
     }
 
-    // ── PHP2Shell Advisory & Mitigation Section (if --check-php was used) ──
-    if report.check_php || report.has_php_findings() {
+    // ── PHP Security Advisory & Mitigation Section (ONLY if vulnerable PHP was found) ──
+    if report.has_vulnerable_php() {
         w.new_page();
         w.text("PHP Security Advisory", HEADING_SIZE, HEADING_LH, true);
         w.text(
@@ -432,7 +432,7 @@ pub fn generate_pdf(
         w.hline();
         w.skip(2.0);
 
-        let advisory_p1 = "Critical vulnerabilities disclosed in October and November 2026 (CVSS 9.2) affect the core PHP interpreter from version 5.4 up to 8.5.12 (PHP2Shell CVE-2026-109618/19 and phpAfterShell CVE-2026-126714 session corruption RCE). AmpScan audits these ports using non-intrusive HTTP HEAD banner grabbing without sending exploit payloads.";
+        let advisory_p1 = "Critical vulnerabilities disclosed in October and November 2026 (CVSS 9.2) affect the core PHP interpreter from version 5.4 up to 8.5.12 (PHP2Shell CVE-2026-109618/19 and phpAfterShell CVE-2026-126714 session corruption RCE). AmpScan audited these ports and identified vulnerable PHP versions on web ports in the tested targets.";
         for line in wrap_text(advisory_p1, 95) {
             w.text(&line, BODY_SIZE, BODY_LH, false);
         }

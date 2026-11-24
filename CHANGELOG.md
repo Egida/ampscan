@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-11-24
+
+### Changed
+- **Strict Web Classification (Protected vs. No PHP Detected)**:
+  - Introduced canonical probe status `PortStatus::OpenNoPhp` (`OPEN (NO PHP DETECTED)`).
+  - Web ports 80/tcp and 443/tcp responding without an explicit PHP version header are now classified as `Open (No PHP detected)` and are never declared as `OpenProtected`.
+  - Only responses exposing explicit patched PHP versions ($\ge 8.2.36, 8.3.37, 8.4.28, 8.5.13$) are marked as `Protected`.
+  - CLI `scan single` output updated with detailed finding suffixes and clean zero-protected counts when no PHP is identified.
+  - TUI Findings table and Dashboard render `Open (No PHP)` without inflating protected or vulnerable statistics.
+  - PDF Report: PHP Security Advisory and details are generated **strictly when vulnerable PHP is identified** (`has_vulnerable_php()`), ensuring non-vulnerable web ports never pollute executive reports.
+
 ## [1.5.4] - 2026-11-22
 
 ### Changed

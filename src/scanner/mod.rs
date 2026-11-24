@@ -291,7 +291,10 @@ pub async fn run_scan_with_channel(
     // Inconclusive — the host is reachable, the port is just filtered.
     let mut alive_ips = std::collections::HashSet::new();
     for r in &report.results {
-        if r.status == PortStatus::Open || r.status == PortStatus::OpenProtected {
+        if r.status == PortStatus::Open
+            || r.status == PortStatus::OpenProtected
+            || r.status == PortStatus::OpenNoPhp
+        {
             alive_ips.insert(r.ip);
         }
     }

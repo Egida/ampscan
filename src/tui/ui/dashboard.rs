@@ -160,6 +160,12 @@ fn render_logs_table(frame: &mut Frame, app: &App, area: Rect) {
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
             ),
+            PortStatus::OpenNoPhp => (
+                "Open (No PHP)",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
             PortStatus::Closed => ("Closed", Style::default().fg(Color::DarkGray)),
             PortStatus::Inconclusive => ("Inconclusive", Style::default().fg(Color::DarkGray)),
             PortStatus::Error(_) => ("Error", Style::default().fg(Color::Red)),

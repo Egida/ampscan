@@ -166,6 +166,10 @@ pub async fn cmd_scan(cli: &Cli, cmd: &ScanCommands) -> Result<()> {
                             Cell::new(r.ip.to_string()).fg(Color::Yellow),
                             Cell::new("Protected").fg(Color::Yellow),
                         ),
+                        scanner::result::PortStatus::OpenNoPhp => (
+                            Cell::new(r.ip.to_string()).fg(Color::Cyan),
+                            Cell::new("Open (No PHP)").fg(Color::Cyan),
+                        ),
                         _ => (Cell::new(r.ip.to_string()), Cell::new("")),
                     };
 
@@ -286,6 +290,9 @@ pub async fn cmd_scan(cli: &Cli, cmd: &ScanCommands) -> Result<()> {
                     scanner::result::PortStatus::OpenProtected => {
                         format!("{}", "Open/Protected".yellow().bold())
                     }
+                    scanner::result::PortStatus::OpenNoPhp => {
+                        format!("{}", "Open (No PHP detected)".cyan().bold())
+                    }
                     scanner::result::PortStatus::Closed => {
                         format!("{}", "Closed".green())
                     }
@@ -297,9 +304,19 @@ pub async fn cmd_scan(cli: &Cli, cmd: &ScanCommands) -> Result<()> {
                     }
                 };
 
+                let detail_suffix = if (r.port == 80 || r.port == 443)
+                    && (r.status == scanner::result::PortStatus::Open
+                        || r.status == scanner::result::PortStatus::OpenProtected
+                        || r.status == scanner::result::PortStatus::OpenNoPhp)
+                {
+                    format!(" - {}", r.description.dimmed())
+                } else {
+                    String::new()
+                };
+
                 println!(
-                    "Testing {} ({}/{}): {}",
-                    r.service_name, r.port, r.protocol, status_str
+                    "Testing {} ({}/{}): {}{}",
+                    r.service_name, r.port, r.protocol, status_str, detail_suffix
                 );
             }
 

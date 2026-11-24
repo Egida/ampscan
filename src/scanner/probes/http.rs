@@ -289,7 +289,7 @@ pub async fn execute_php_probe(
         let mut stream = stream;
         if let Err(e) = stream.write_all(req.as_bytes()).await {
             return (
-                PortStatus::OpenProtected,
+                PortStatus::OpenNoPhp,
                 Some(latency_ms),
                 format!("HTTP open, write error: {}", e),
             );
@@ -312,7 +312,7 @@ pub async fn execute_php_probe(
                         Ok(sn) => sn,
                         Err(_) => {
                             return (
-                                PortStatus::OpenProtected,
+                                PortStatus::OpenNoPhp,
                                 Some(latency_ms),
                                 "HTTPS open (TLS hostname error)".to_string(),
                             );
@@ -326,7 +326,7 @@ pub async fn execute_php_probe(
                     Ok(sn) => sn,
                     Err(_) => {
                         return (
-                            PortStatus::OpenProtected,
+                            PortStatus::OpenNoPhp,
                             Some(latency_ms),
                             "HTTPS open (TLS hostname error)".to_string(),
                         );
@@ -339,7 +339,7 @@ pub async fn execute_php_probe(
             Ok(Ok(mut tls_stream)) => {
                 if let Err(e) = tls_stream.write_all(req.as_bytes()).await {
                     return (
-                        PortStatus::OpenProtected,
+                        PortStatus::OpenNoPhp,
                         Some(latency_ms),
                         format!("HTTPS open, write error: {}", e),
                     );
@@ -354,7 +354,7 @@ pub async fn execute_php_probe(
             }
             _ => {
                 return (
-                    PortStatus::OpenProtected,
+                    PortStatus::OpenNoPhp,
                     Some(latency_ms),
                     "HTTPS open (TLS handshake failed / non-standard)".to_string(),
                 );
@@ -381,9 +381,9 @@ pub async fn execute_php_probe(
             ),
         ),
         PhpAssessment::NoPhpHeader => (
-            PortStatus::OpenProtected,
+            PortStatus::OpenNoPhp,
             Some(latency_ms),
-            "Web server open, PHP banner not exposed (expose_php = Off)".to_string(),
+            "Web server open, no PHP banner detected".to_string(),
         ),
     }
 }
@@ -569,5 +569,20 @@ mod tests {
         let req = build_http_head_request("meusite.com.br");
         assert!(req.starts_with("HEAD / HTTP/1.1\r\nHost: meusite.com.br\r\n"));
         assert!(req.ends_with("\r\n\r\n"));
+    }
+
+    #[test]
+    fn test_php_assessment_no_php_header_maps_to_open_no_php() {
+        let headers_no_php =
+            "HTTP/1.1 200 OK\r\nServer: Apache/2.4.41 (Ubuntu)\r\nContent-Type: text/html\r\n\r\n";
+        let assessment = parse_php_version_from_headers(headers_no_php);
+        assert_eq!(assessment, PhpAssessment::NoPhpHeader);
+
+        let status = match assessment {
+            PhpAssessment::Vulnerable { .. } => PortStatus::Open,
+            PhpAssessment::NotVulnerable { .. } => PortStatus::OpenProtected,
+            PhpAssessment::NoPhpHeader => PortStatus::OpenNoPhp,
+        };
+        assert_eq!(status, PortStatus::OpenNoPhp);
     }
 }

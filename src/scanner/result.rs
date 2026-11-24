@@ -8,8 +8,10 @@ use std::net::IpAddr;
 pub enum PortStatus {
     /// Port responded to the probe — vulnerable to amplification
     Open,
-    /// Port is open but protected (e.g., DNS refused recursion)
+    /// Port is open but protected (e.g., DNS refused recursion, or PHP patched)
     OpenProtected,
+    /// Web port is open, but PHP was not detected
+    OpenNoPhp,
     /// Host is alive but port did not respond — not vulnerable
     Closed,
     /// Host did not respond to ICMP — cannot determine port status
@@ -23,6 +25,7 @@ impl fmt::Display for PortStatus {
         match self {
             PortStatus::Open => write!(f, "OPEN (VULNERABLE)"),
             PortStatus::OpenProtected => write!(f, "OPEN (PROTECTED)"),
+            PortStatus::OpenNoPhp => write!(f, "OPEN (NO PHP DETECTED)"),
             PortStatus::Closed => write!(f, "CLOSED"),
             PortStatus::Inconclusive => write!(f, "INCONCLUSIVE"),
             PortStatus::Error(e) => write!(f, "ERROR: {}", e),
@@ -84,11 +87,15 @@ impl ScanReport {
             .collect()
     }
 
-    /// Get only the results that are either open (vulnerable) or open (protected).
+    /// Get only the results that are open (vulnerable, protected, or open without PHP).
     pub fn detected_results(&self) -> Vec<&ProbeResult> {
         self.results
             .iter()
-            .filter(|r| r.status == PortStatus::Open || r.status == PortStatus::OpenProtected)
+            .filter(|r| {
+                r.status == PortStatus::Open
+                    || r.status == PortStatus::OpenProtected
+                    || r.status == PortStatus::OpenNoPhp
+            })
             .collect()
     }
 
@@ -105,12 +112,16 @@ impl ScanReport {
         ips
     }
 
-    /// Get unique IPs that have at least one detected (vulnerable or protected) port.
+    /// Get unique IPs that have at least one detected (vulnerable, protected, or open without PHP) port.
     pub fn detected_ips(&self) -> Vec<IpAddr> {
         let mut ips: Vec<IpAddr> = self
             .results
             .iter()
-            .filter(|r| r.status == PortStatus::Open || r.status == PortStatus::OpenProtected)
+            .filter(|r| {
+                r.status == PortStatus::Open
+                    || r.status == PortStatus::OpenProtected
+                    || r.status == PortStatus::OpenNoPhp
+            })
             .map(|r| r.ip)
             .collect();
         ips.sort();
@@ -135,5 +146,12 @@ impl ScanReport {
             (r.port == 80 || r.port == 443)
                 && (r.status == PortStatus::Open || r.status == PortStatus::OpenProtected)
         })
+    }
+
+    /// Check if report contains any confirmed vulnerable PHP findings on port 80 or 443.
+    pub fn has_vulnerable_php(&self) -> bool {
+        self.results
+            .iter()
+            .any(|r| (r.port == 80 || r.port == 443) && r.status == PortStatus::Open)
     }
 }
