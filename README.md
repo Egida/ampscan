@@ -124,18 +124,18 @@ ampscan tui --db-path /path/to/ampscan.db -c 512 -t 2 --pdf --recipient "SOC Tea
 ## 📸 TUI Screens & Features
 
 ### 1. Dashboard (`[Tab]` View 1)
-Displays live scan metrics, a progress bar, overall statistics (Vulnerable, Open/Protected, Closed/Filtered), active parameters, and a real-time stream of incoming probes.
+Displays live scan metrics, a progress bar, overall statistics (Vulnerable, Open/Protected, conditional HTTP/HTTPS Open No PHP, Closed/Filtered, and live/final Scan Duration), active parameters, and a real-time stream of incoming probes.
 
 ![Dashboard Screen](tui_dashboard.png)
 
-*   **Key Controls:** Press `[F]` to start a Full CIDR scan, `[Space]` to pause/resume, and `[Q]` to quit.
+*   **Key Controls:** Press `[F]` to start a Full CIDR scan, `[S]` for Single Target scan, and `[Q]` to quit.
 
 ### 2. Results Viewer (`[Tab]` View 2)
-Dedicated viewer listing all detected findings (**VULNERABLE** and **Open/Protected**). Supports smooth keyboard scrolling.
+Dedicated split-screen viewer listing all detected findings (**VULNERABLE**, **Open/Protected**, and **Open (No PHP)**) with `Protocol` column alongside real-time **Port Statistics** (`Vuln` / `Prot`). Supports smooth free-cursor viewport scrolling.
 
 ![Results Viewer Screen](tui_results.png)
 
-*   **Key Controls:** Use `[UP]`, `[DOWN]`, `[PageUp]` (`PgUp`), and `[PageDown]` (`PgDn`) to scroll through findings.
+*   **Key Controls:** Use `[UP]`, `[DOWN]`, `[PageUp]`, `[PageDown]`, `[Home]`, `[End]`, or `Ctrl+F`/`B`/`D`/`U` to navigate findings.
 
 ### 3. CIDR Scan (`[Tab]` View 3)
 Shows the list of network subnets (CIDR prefixes) registered in the database, along with their active status and descriptions.
@@ -150,16 +150,16 @@ Allows instant scanning of a single IP address (e.g., `192.168.1.1`) or specific
 *   **Key Controls:** Type the IP/CIDR target and press `[Enter]` or `[S]` to start an immediate diagnostic scan.
 
 ### 5. Port Database (`[Tab]` View 5)
-Lists all 20+ DDoS amplification signatures (DNS, NTP, SNMP, Memcached, SSDP, CLDAP, etc.) registered in the system, including protocol type, probe method, and amplification factors.
+Lists all 23 DDoS amplification signatures (DNS, NTP, SNMP, Memcached, SSDP, CLDAP, etc.) and optional HTTP/HTTPS PHP RCE audit ports (`80/tcp`, `443/tcp`) dynamically synchronized with Settings.
 
 ![Port Database Screen](tui_port_database.png)
 
 ### 6. Settings (`[Tab]` View 6)
-Allows real-time tweaking of scanner runtime parameters: **Max Concurrency** (up to 10,000 threads), **Probe Timeout** (up to 60s), and **UDP Retries** (up to 10 attempts).
+Allows real-time tweaking of scanner runtime parameters: **Max Concurrency** (up to 10,000), **Probe Timeout** (up to 60s), **UDP Retries** (up to 10 attempts), and toggling **PHP RCE Audit (80/443)**.
 
 ![Settings Screen](tui_settings.png)
 
-*   **Key Controls:** Use `[UP]` and `[DOWN]` setas to cycle between fields, and type digits directly to edit parameters.
+*   **Key Controls:** Use `[UP]` and `[DOWN]` arrows to cycle between fields, type digits directly to edit parameters, and press `[P]` to toggle PHP RCE Audit.
 
 ---
 
