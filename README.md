@@ -234,7 +234,7 @@ Tests all prefixes and ports configured in the database, or scans a manually spe
 
 Database batch scan example:
 ```bash
-ampscan --db-path ampscan.db scan run --concurrency 500 --timeout 2 --pdf --output audit_report.pdf
+ampscan --db-path ampscan.db scan run --concurrency 1024 --timeout 2 --pdf --output audit_report.pdf
 ```
 ![Scan Run CLI Output](ampscan_report_cli.png)
 
