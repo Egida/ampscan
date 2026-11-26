@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] - 2026-11-26
+
+### Added
+- **TUI Dashboard & Results Viewer Enhancements**:
+  - Added live/final `Scan Duration` (`HH:MM:SS`) to the Dashboard `Findings Summary`.
+  - Added conditional `HTTP/HTTPS Open (No PHP)` counter in Dashboard (visible when `--check-php` / `P` is enabled or findings exist).
+  - Added `Protocol` column (`TCP`/`UDP`) to the Results Viewer table and isolated `port_stats` by `(port, protocol)` while excluding `OpenNoPhp` from `Vuln`/`Prot` counters.
+
+### Fixed
+- **Protocol Validators Hardening**:
+  - Added dedicated `execute_ntp_probe` / `assess_ntp_response` rejecting arbitrary payloads and ICMP reflections (`0x4x`/`0x6x`) and mapping `E=1` refusals to `OpenProtected`.
+  - Fixed MS-RDPEUDP validator to inspect `uFlags` at bytes `6..8` (`RDPUDP_FLAG_SYN` / `RDPUDP_FLAG_ACK`) instead of byte 0 / length fallback.
+  - Added `XID`/`TXID` matching for `rpc`/`netbios` and structural ASN.1/BER TLV parsing (with long-form length support) for `snmp`/`ldap`.
+- **HTTP/HTTPS Probe & TUI/CLI Consistency**:
+  - Implemented bounded header read loop (`\r\n\r\n`, 8 KB cap) and full multi-header PHP evaluation prioritizing `Vulnerable`.
+  - Removed silent `"target"` SNI fallback; invalid TLS hostnames now report `OpenNoPhp`.
+  - Synchronized `alive_ips` closure and `last_scanned_prefixes` in TUI; enforced `protocol == "tcp"` on 80/443 injection; aligned CLI limits (`concurrency` `1..=10000`, `timeout` `1..=60`, `retries` `0..=10`).
+  - Removed dead code (`custom_prefix_input`, `has_php_findings`, unused `truncate`, `_USABLE_W`, duplicate `ScanStarted`).
+
 ## [1.5.5] - 2026-11-24
 
 ### Changed

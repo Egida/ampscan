@@ -47,8 +47,18 @@ pub struct ScanStats {
     pub completed_probes: usize,
     pub vulnerable_count: usize,
     pub protected_count: usize,
+    pub open_no_php_count: usize,
     pub closed_count: usize,
     pub start_time: Option<Instant>,
+    pub elapsed_duration: Option<std::time::Duration>,
+}
+
+impl ScanStats {
+    /// Returns the frozen final duration after completion, or live elapsed time while scanning.
+    pub fn scan_duration(&self) -> Option<std::time::Duration> {
+        self.elapsed_duration
+            .or_else(|| self.start_time.map(|t| t.elapsed()))
+    }
 }
 
 pub struct App {
@@ -60,7 +70,7 @@ pub struct App {
     pub stats: ScanStats,
     pub logs: Vec<ProbeResult>,
     pub filtered_log_indices: Vec<usize>,
-    pub port_stats: std::collections::HashMap<u16, (usize, usize)>,
+    pub port_stats: std::collections::HashMap<(u16, String), (usize, usize)>,
     pub selected_log_index: usize,
     pub findings_scroll_offset: std::cell::Cell<usize>,
     pub visible_findings_rows: std::cell::Cell<usize>,
@@ -68,6 +78,7 @@ pub struct App {
     // DB Data Cache for TUI
     pub prefixes: Vec<Prefix>,
     pub ports: Vec<Port>,
+    pub last_scanned_prefixes: Vec<String>,
     pub selected_prefix_index: usize,
     pub selected_port_index: usize,
 
@@ -75,7 +86,6 @@ pub struct App {
     pub db_path: String,
     pub db_key: String,
     pub single_ip_input: String,
-    pub custom_prefix_input: String,
     pub concurrency_input: String,
     pub timeout_input: String,
     pub retries_input: String,
@@ -120,12 +130,12 @@ impl App {
             visible_findings_rows: std::cell::Cell::new(25),
             prefixes: Vec::new(),
             ports: Vec::new(),
+            last_scanned_prefixes: Vec::new(),
             selected_prefix_index: 0,
             selected_port_index: 0,
             db_path,
             db_key,
             single_ip_input: String::new(),
-            custom_prefix_input: String::new(),
             concurrency_input: concurrency.to_string(),
             timeout_input: timeout.to_string(),
             retries_input: retries.to_string(),
@@ -187,17 +197,23 @@ impl App {
         match &result.status {
             crate::scanner::result::PortStatus::Open => {
                 self.stats.vulnerable_count += 1;
-                let entry = self.port_stats.entry(result.port).or_default();
+                let entry = self
+                    .port_stats
+                    .entry((result.port, result.protocol.clone()))
+                    .or_default();
                 entry.0 += 1;
             }
             crate::scanner::result::PortStatus::OpenProtected => {
                 self.stats.protected_count += 1;
-                let entry = self.port_stats.entry(result.port).or_default();
+                let entry = self
+                    .port_stats
+                    .entry((result.port, result.protocol.clone()))
+                    .or_default();
                 entry.1 += 1;
             }
             crate::scanner::result::PortStatus::OpenNoPhp => {
-                // Open web port without PHP: registered in stats list with 0 vuln / 0 prot
-                self.port_stats.entry(result.port).or_default();
+                // Open web port without PHP: counted only in Dashboard summary, never in Vuln/Prot stats
+                self.stats.open_no_php_count += 1;
             }
             _ => self.stats.closed_count += 1,
         }
@@ -261,6 +277,11 @@ impl App {
     pub fn toggle_check_php(&mut self) {
         self.check_php = !self.check_php;
         self.sync_php_ports();
+    }
+
+    /// Synchronize TUI logs with the scanner's post-scan alive-IP closure rule.
+    pub fn apply_alive_ip_closure(&mut self) {
+        crate::scanner::apply_alive_ip_closure(&mut self.logs);
     }
 }
 
@@ -411,5 +432,68 @@ mod tests {
         // 7. Cursor moves UP within visible viewport (index 25)
         app.selected_log_index = 25;
         assert_eq!(calculate_start_idx(&app, visible_height), 25);
+    }
+
+    #[test]
+    fn test_tui_alive_ip_closure_and_protocol_stats_isolation() {
+        use crate::scanner::result::PortStatus;
+        use chrono::Utc;
+        use std::net::IpAddr;
+
+        let mut app = App::new(
+            "test.db".to_string(),
+            "test_key".to_string(),
+            256,
+            3,
+            2,
+            false,
+            "report.pdf".to_string(),
+            None,
+            None,
+            false,
+            None,
+        );
+
+        let ip_alive: IpAddr = "192.0.2.10".parse().unwrap();
+        let ip_dead: IpAddr = "192.0.2.20".parse().unwrap();
+
+        app.add_probe_result(ProbeResult {
+            ip: ip_alive,
+            port: 53,
+            protocol: "udp".to_string(),
+            service_name: "DNS".to_string(),
+            description: "DNS".to_string(),
+            status: PortStatus::Open,
+            response_time_ms: Some(5),
+            timestamp: Utc::now(),
+        });
+        app.add_probe_result(ProbeResult {
+            ip: ip_alive,
+            port: 53,
+            protocol: "tcp".to_string(),
+            service_name: "DNS-TCP".to_string(),
+            description: "DNS TCP".to_string(),
+            status: PortStatus::Inconclusive,
+            response_time_ms: None,
+            timestamp: Utc::now(),
+        });
+        app.add_probe_result(ProbeResult {
+            ip: ip_dead,
+            port: 53,
+            protocol: "udp".to_string(),
+            service_name: "DNS".to_string(),
+            description: "DNS".to_string(),
+            status: PortStatus::Inconclusive,
+            response_time_ms: None,
+            timestamp: Utc::now(),
+        });
+
+        app.apply_alive_ip_closure();
+
+        assert_eq!(app.logs[0].status, PortStatus::Open);
+        assert_eq!(app.logs[1].status, PortStatus::Closed);
+        assert_eq!(app.logs[2].status, PortStatus::Inconclusive);
+        assert_eq!(app.port_stats.get(&(53, "udp".to_string())), Some(&(1, 0)));
+        assert_eq!(app.port_stats.get(&(53, "tcp".to_string())), None);
     }
 }

@@ -16,12 +16,14 @@ pub fn render_dashboard(frame: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // Left Panel: Stats & Gauges
+    let show_no_php = app.check_php || app.stats.open_no_php_count > 0;
+    let summary_height = if show_no_php { 8 } else { 7 };
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4), // Progress Gauge
-            Constraint::Length(6), // Metrics Summary
-            Constraint::Min(0),    // Info Panel
+            Constraint::Length(4),              // Progress Gauge
+            Constraint::Length(summary_height), // Metrics Summary
+            Constraint::Min(0),                 // Info Panel
         ])
         .split(main_chunks[0]);
 
@@ -76,16 +78,16 @@ pub fn render_dashboard(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(progress_widget, left_chunks[0]);
 
     // Metrics Summary
-    let stats_text = vec![
+    let mut stats_text = vec![
         Line::from(vec![
-            Span::raw("Vulnerable (Open): "),
+            Span::raw("Vulnerable (Open):        "),
             Span::styled(
                 app.stats.vulnerable_count.to_string(),
                 Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(vec![
-            Span::raw("Open / Protected:  "),
+            Span::raw("Open / Protected:         "),
             Span::styled(
                 app.stats.protected_count.to_string(),
                 Style::default()
@@ -93,14 +95,51 @@ pub fn render_dashboard(frame: &mut Frame, app: &App, area: Rect) {
                     .add_modifier(Modifier::BOLD),
             ),
         ]),
-        Line::from(vec![
-            Span::raw("Closed / Filtered: "),
-            Span::styled(
-                app.stats.closed_count.to_string(),
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]),
     ];
+
+    if show_no_php {
+        stats_text.push(Line::from(vec![
+            Span::raw("HTTP/HTTPS Open (No PHP): "),
+            Span::styled(
+                app.stats.open_no_php_count.to_string(),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    }
+
+    stats_text.push(Line::from(vec![
+        Span::raw("Closed / Filtered:        "),
+        Span::styled(
+            app.stats.closed_count.to_string(),
+            Style::default().fg(Color::DarkGray),
+        ),
+    ]));
+
+    let duration_str = match app.stats.scan_duration() {
+        Some(d) => {
+            let secs = d.as_secs();
+            format!(
+                "{:02}:{:02}:{:02}",
+                secs / 3600,
+                (secs % 3600) / 60,
+                secs % 60
+            )
+        }
+        None => "00:00:00".to_string(),
+    };
+    let duration_style = if app.stats.scan_duration().is_some() {
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    stats_text.push(Line::from(vec![
+        Span::raw("Scan Duration:            "),
+        Span::styled(duration_str, duration_style),
+    ]));
 
     let stats_paragraph = Paragraph::new(stats_text).block(
         Block::default()

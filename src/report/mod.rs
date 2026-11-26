@@ -12,8 +12,7 @@ pub use config::{AppConfig, CompanyConfig};
 
 use crate::scanner::result::{PortStatus, ScanReport};
 use anyhow::Result;
-#[allow(unused)]
-use printpdf::*;
+use printpdf::{Mm, Op, RawImage, XObjectTransform};
 use procedures::get_manual_command;
 use std::fs::File;
 use text::{wrap_command, wrap_text};

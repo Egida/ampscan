@@ -1,8 +1,10 @@
 //! PDF low-level document writer and layout primitives
 use super::text::sanitize;
 use anyhow::{Context, Result};
-#[allow(unused)]
-use printpdf::*;
+use printpdf::{
+    BuiltinFont, Line, LinePoint, Mm, Op, PdfDocument, PdfFontHandle, PdfPage, PdfSaveOptions,
+    Point, Pt, TextItem,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants — A4 page layout
@@ -11,7 +13,6 @@ use printpdf::*;
 pub const PAGE_W: f32 = 210.0;
 pub const PAGE_H: f32 = 297.0;
 pub const MARGIN: f32 = 20.0;
-pub const _USABLE_W: f32 = PAGE_W - 2.0 * MARGIN;
 
 // Font sizes (points)
 pub const TITLE_SIZE: f32 = 28.0;

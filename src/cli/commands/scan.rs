@@ -341,39 +341,3 @@ pub async fn cmd_scan(cli: &Cli, cmd: &ScanCommands) -> Result<()> {
     }
     Ok(())
 }
-
-/// Truncate a string for table display.
-#[allow(dead_code)]
-pub fn truncate(s: &str, max_len: usize) -> String {
-    if s.chars().count() <= max_len {
-        s.to_string()
-    } else {
-        let truncated: String = s.chars().take(max_len.saturating_sub(3)).collect();
-        format!("{}...", truncated)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_truncate_generic_utf8() {
-        // ASCII normal
-        assert_eq!(truncate("hello world", 8), "hello...");
-        assert_eq!(truncate("hello", 10), "hello");
-
-        // String with accented characters
-        let s1 = "possible infection";
-        assert_eq!(truncate(s1, 11), "possible...");
-        assert_eq!(truncate(s1, 18), "possible infection");
-
-        // String with emojis (multi-byte)
-        let s2 = "Alert 🚨 security";
-        assert_eq!(truncate(s2, 10), "Alert 🚨..."); // '🚨' is 1 char
-
-        // Extreme limits
-        assert_eq!(truncate("", 5), "");
-        assert_eq!(truncate("abc", 0), "...");
-    }
-}

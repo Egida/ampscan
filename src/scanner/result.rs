@@ -140,14 +140,6 @@ impl ScanReport {
         sorted
     }
 
-    /// Check if report contains any findings from HTTP (80) or HTTPS (443) probes.
-    pub fn has_php_findings(&self) -> bool {
-        self.results.iter().any(|r| {
-            (r.port == 80 || r.port == 443)
-                && (r.status == PortStatus::Open || r.status == PortStatus::OpenProtected)
-        })
-    }
-
     /// Check if report contains any confirmed vulnerable PHP findings on port 80 or 443.
     pub fn has_vulnerable_php(&self) -> bool {
         self.results

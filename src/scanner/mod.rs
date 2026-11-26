@@ -65,7 +65,7 @@ pub async fn run_scan_with_channel(
     // ── 0. Inject PHP2Shell audit ports (80 and 443) if enabled ───────────
     let mut ports = ports;
     if config.check_php {
-        if !ports.iter().any(|p| p.port == 80) {
+        if !ports.iter().any(|p| p.port == 80 && p.protocol == "tcp") {
             ports.push(Port {
                 id: 80,
                 port: 80,
@@ -79,7 +79,7 @@ pub async fn run_scan_with_channel(
                 updated_at: String::new(),
             });
         }
-        if !ports.iter().any(|p| p.port == 443) {
+        if !ports.iter().any(|p| p.port == 443 && p.protocol == "tcp") {
             ports.push(Port {
                 id: 443,
                 port: 443,
@@ -286,23 +286,7 @@ pub async fn run_scan_with_channel(
     }
 
     // ── 5. Post-process: infer closed ports on known-alive hosts ──────────
-    // If a host responded on any port (Open or OpenProtected), all other
-    // non-responding ports on that same host are marked Closed rather than
-    // Inconclusive — the host is reachable, the port is just filtered.
-    let mut alive_ips = std::collections::HashSet::new();
-    for r in &report.results {
-        if r.status == PortStatus::Open
-            || r.status == PortStatus::OpenProtected
-            || r.status == PortStatus::OpenNoPhp
-        {
-            alive_ips.insert(r.ip);
-        }
-    }
-    for r in &mut report.results {
-        if alive_ips.contains(&r.ip) && r.status == PortStatus::Inconclusive {
-            r.status = PortStatus::Closed;
-        }
-    }
+    apply_alive_ip_closure(&mut report.results);
 
     report.finalize();
 
@@ -344,6 +328,25 @@ fn draw_progress(done: usize, total: usize, is_tui: bool) {
         bar_filled, bar_empty, percent, done, total
     );
     let _ = std::io::stderr().flush();
+}
+
+/// If a host responded on any port (`Open`, `OpenProtected`, or `OpenNoPhp`),
+/// mark all remaining `Inconclusive` ports on that host as `Closed`.
+pub fn apply_alive_ip_closure(results: &mut [ProbeResult]) {
+    let mut alive_ips = std::collections::HashSet::new();
+    for r in results.iter() {
+        if matches!(
+            r.status,
+            PortStatus::Open | PortStatus::OpenProtected | PortStatus::OpenNoPhp
+        ) {
+            alive_ips.insert(r.ip);
+        }
+    }
+    for r in results.iter_mut() {
+        if alive_ips.contains(&r.ip) && r.status == PortStatus::Inconclusive {
+            r.status = PortStatus::Closed;
+        }
+    }
 }
 
 pub async fn scan_single_ip(
@@ -409,11 +412,6 @@ pub async fn scan_target_with_channel(
 
     if ips.is_empty() {
         return Ok(Vec::new());
-    }
-
-    let total_probes = ips.len() * ports.len();
-    if let Some(ref sender) = tx {
-        let _ = sender.send(crate::tui::app::TuiEvent::ScanStarted(total_probes));
     }
 
     let ip_ver = if ips.first().map(|ip| ip.is_ipv6()).unwrap_or(false) {

@@ -1,6 +1,24 @@
 //! Command line interface argument definitions via clap
 use clap::{Parser, Subcommand};
 
+fn parse_concurrency(s: &str) -> Result<usize, String> {
+    let v: usize = s.parse().map_err(|_| format!("invalid integer: {}", s))?;
+    if (1..=10000).contains(&v) {
+        Ok(v)
+    } else {
+        Err(format!("{} is not in 1..=10000", v))
+    }
+}
+
+fn parse_retries(s: &str) -> Result<usize, String> {
+    let v: usize = s.parse().map_err(|_| format!("invalid integer: {}", s))?;
+    if v <= 10 {
+        Ok(v)
+    } else {
+        Err(format!("{} is not in 0..=10", v))
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "ampscan",
@@ -45,14 +63,14 @@ pub enum Commands {
 
     /// Launch interactive Terminal User Interface (TUI)
     Tui {
-        /// Maximum number of simultaneous probes
-        #[arg(short, long, default_value = "256")]
+        /// Maximum number of simultaneous probes (1-10000)
+        #[arg(short, long, default_value = "256", value_parser = parse_concurrency)]
         concurrency: usize,
-        /// Timeout per probe in seconds
-        #[arg(short, long, default_value = "3")]
+        /// Timeout per probe in seconds (1-60)
+        #[arg(short, long, default_value = "3", value_parser = clap::value_parser!(u64).range(1..=60))]
         timeout: u64,
-        /// Number of retries for UDP probes (default is 2)
-        #[arg(short, long, default_value = "2")]
+        /// Number of retries for UDP probes (0-10, default is 2)
+        #[arg(short, long, default_value = "2", value_parser = parse_retries)]
         retries: usize,
         /// Request PDF report generation when scan finishes
         #[arg(long)]
@@ -159,14 +177,14 @@ pub enum UserCommands {
 pub enum ScanCommands {
     /// Run a full scan on all enabled prefixes
     Run {
-        /// Maximum number of simultaneous probes
-        #[arg(short, long, default_value = "256")]
+        /// Maximum number of simultaneous probes (1-10000)
+        #[arg(short, long, default_value = "256", value_parser = parse_concurrency)]
         concurrency: usize,
-        /// Timeout per probe in seconds
-        #[arg(short, long, default_value = "3")]
+        /// Timeout per probe in seconds (1-60)
+        #[arg(short, long, default_value = "3", value_parser = clap::value_parser!(u64).range(1..=60))]
         timeout: u64,
-        /// Number of retries for UDP probes (default is 2, giving 3 total attempts)
-        #[arg(short, long, default_value = "2")]
+        /// Number of retries for UDP probes (0-10, default is 2, giving 3 total attempts)
+        #[arg(short, long, default_value = "2", value_parser = parse_retries)]
         retries: usize,
         /// Output PDF report file path
         #[arg(short, long, default_value = "ampscan_report.pdf")]
@@ -194,14 +212,14 @@ pub enum ScanCommands {
     Single {
         /// IP Address (IPv4 or IPv6)
         ip: String,
-        /// Timeout per probe in seconds
-        #[arg(short, long, default_value = "3")]
+        /// Timeout per probe in seconds (1-60)
+        #[arg(short, long, default_value = "3", value_parser = clap::value_parser!(u64).range(1..=60))]
         timeout: u64,
-        /// Maximum number of simultaneous probes
-        #[arg(short, long, default_value = "1")]
+        /// Maximum number of simultaneous probes (1-10000)
+        #[arg(short, long, default_value = "1", value_parser = parse_concurrency)]
         concurrency: usize,
-        /// Number of retries for UDP probes (default is 2, giving 3 total attempts)
-        #[arg(short, long, default_value = "2")]
+        /// Number of retries for UDP probes (0-10, default is 2, giving 3 total attempts)
+        #[arg(short, long, default_value = "2", value_parser = parse_retries)]
         retries: usize,
         /// Audit HTTP (80) and HTTPS (443) for PHP RCE (PHP2Shell / phpAfterShell)
         #[arg(long)]

@@ -20,16 +20,24 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
     let right_area = chunks[1];
 
     // ── 1. Left Panel: Verified Findings Table ─────────────────────────────
-    let header_cells = ["#", "IP Address", "Port", "Service", "Status", "Latency"]
-        .iter()
-        .map(|h| {
-            Span::styled(
-                *h,
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
-        });
+    let header_cells = [
+        "#",
+        "IP Address",
+        "Port",
+        "Protocol",
+        "Service",
+        "Status",
+        "Latency",
+    ]
+    .iter()
+    .map(|h| {
+        Span::styled(
+            *h,
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+    });
     let header = Row::new(header_cells).height(1).bottom_margin(1);
 
     let total_findings = app.filtered_log_indices.len();
@@ -113,6 +121,7 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
                 Span::raw((abs_idx + 1).to_string()),
                 Span::raw(log.ip.to_string()),
                 Span::raw(log.port.to_string()),
+                Span::raw(log.protocol.to_uppercase()),
                 Span::raw(log.service_name.clone()),
                 Span::styled(status_str, status_style),
                 Span::raw(latency_str),
@@ -137,12 +146,13 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
     let table = Table::new(
         rows,
         [
+            Constraint::Percentage(6),
+            Constraint::Percentage(23),
             Constraint::Percentage(8),
-            Constraint::Percentage(26),
-            Constraint::Percentage(12),
-            Constraint::Percentage(18),
-            Constraint::Percentage(22),
-            Constraint::Percentage(14),
+            Constraint::Percentage(10),
+            Constraint::Percentage(17),
+            Constraint::Percentage(23),
+            Constraint::Percentage(13),
         ],
     )
     .header(header)
@@ -171,7 +181,11 @@ pub fn render_results_viewer(frame: &mut Frame, app: &App, area: Rect) {
 
     if !app.ports.is_empty() {
         for port in &app.ports {
-            let (vuln, prot) = app.port_stats.get(&port.port).copied().unwrap_or((0, 0));
+            let (vuln, prot) = app
+                .port_stats
+                .get(&(port.port, port.protocol.clone()))
+                .copied()
+                .unwrap_or((0, 0));
             stats_list.push(PortStat {
                 display_name: format!("{} ({}/{})", port.name, port.port, port.protocol),
                 vulnerable: vuln,

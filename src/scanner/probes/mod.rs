@@ -50,6 +50,8 @@ pub async fn execute_probe(
                 validate::execute_dns_probe(ip, port_config.port, timeout, retries).await
             } else if port_config.probe_type == "snmp" {
                 validate::execute_snmp_probe(ip, port_config.port, timeout, retries).await
+            } else if port_config.probe_type == "ntp" {
+                validate::execute_ntp_probe(ip, port_config.port, timeout, retries).await
             } else {
                 let payload = payloads::build_payload(
                     &port_config.probe_type,

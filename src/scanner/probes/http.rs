@@ -11,7 +11,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::rustls::client::danger::{
     HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
@@ -84,7 +84,10 @@ pub enum PhpAssessment {
 }
 
 /// Parse HTTP response headers searching for PHP signatures in X-Powered-By or Server headers.
+/// Evaluates all matching headers and prioritizes any `Vulnerable` finding.
 pub fn parse_php_version_from_headers(headers: &str) -> PhpAssessment {
+    let mut best_safe: Option<PhpAssessment> = None;
+
     for line in headers.lines() {
         let line_lower = line.to_ascii_lowercase();
         if line_lower.starts_with("x-powered-by:") || line_lower.starts_with("server:") {
@@ -95,12 +98,20 @@ pub fn parse_php_version_from_headers(headers: &str) -> PhpAssessment {
                     .take_while(|c| c.is_ascii_digit() || *c == '.')
                     .collect();
                 if !version_str.is_empty() {
-                    return assess_php_version(&version_str);
+                    let assessment = assess_php_version(&version_str);
+                    match assessment {
+                        PhpAssessment::Vulnerable { .. } => return assessment,
+                        PhpAssessment::NotVulnerable { .. } if best_safe.is_none() => {
+                            best_safe = Some(assessment);
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
     }
-    PhpAssessment::NoPhpHeader
+
+    best_safe.unwrap_or(PhpAssessment::NoPhpHeader)
 }
 
 /// Assess vulnerability status based on PHP Foundation advisory criteria for
@@ -227,6 +238,38 @@ pub fn build_http_head_request(host: &str) -> String {
     )
 }
 
+/// Read HTTP response headers in a bounded loop until `\r\n\r\n` (or `\n\n`),
+/// EOF, buffer cap (`8192` bytes), or a single overall deadline (`read_timeout`).
+async fn read_http_headers<S: AsyncRead + Unpin>(stream: &mut S, read_timeout: Duration) -> String {
+    const MAX_HEADER_BYTES: usize = 8192;
+    let mut accumulated = Vec::with_capacity(2048);
+    let mut chunk = [0u8; 2048];
+
+    let _ = tokio::time::timeout(read_timeout, async {
+        loop {
+            let remaining = MAX_HEADER_BYTES.saturating_sub(accumulated.len());
+            if remaining == 0 {
+                break;
+            }
+            let max_read = remaining.min(chunk.len());
+            match stream.read(&mut chunk[..max_read]).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    accumulated.extend_from_slice(&chunk[..n]);
+                    if accumulated.windows(4).any(|w| w == b"\r\n\r\n")
+                        || accumulated.windows(2).any(|w| w == b"\n\n")
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+    })
+    .await;
+
+    String::from_utf8_lossy(&accumulated).to_string()
+}
+
 /// Execute a two-phase non-intrusive HTTP/HTTPS probe:
 /// Phase 1: Fast TCP connect with capped timeout (max 1500ms).
 /// Phase 2: Send HEAD / request (plaintext or TLS) and parse headers.
@@ -294,35 +337,13 @@ pub async fn execute_php_probe(
                 format!("HTTP open, write error: {}", e),
             );
         }
-        let mut buf = vec![0u8; 4096];
-        let n = match tokio::time::timeout(read_timeout, stream.read(&mut buf)).await {
-            Ok(Ok(n)) => n,
-            _ => 0,
-        };
-        buf.truncate(n);
-        String::from_utf8_lossy(&buf).to_string()
+        read_http_headers(&mut stream, read_timeout).await
     } else {
         let connector = build_tls_connector();
         let server_name = match http_host {
             Some(h) if !h.trim().is_empty() => {
                 let host_only = h.split(':').next().unwrap_or(h).trim();
                 match ServerName::try_from(host_only.to_string()) {
-                    Ok(sn) => sn,
-                    Err(_) => match ServerName::try_from("target".to_string()) {
-                        Ok(sn) => sn,
-                        Err(_) => {
-                            return (
-                                PortStatus::OpenNoPhp,
-                                Some(latency_ms),
-                                "HTTPS open (TLS hostname error)".to_string(),
-                            );
-                        }
-                    },
-                }
-            }
-            _ => match ServerName::try_from(ip.to_string()) {
-                Ok(sn) => sn,
-                Err(_) => match ServerName::try_from("target".to_string()) {
                     Ok(sn) => sn,
                     Err(_) => {
                         return (
@@ -331,7 +352,17 @@ pub async fn execute_php_probe(
                             "HTTPS open (TLS hostname error)".to_string(),
                         );
                     }
-                },
+                }
+            }
+            _ => match ServerName::try_from(ip.to_string()) {
+                Ok(sn) => sn,
+                Err(_) => {
+                    return (
+                        PortStatus::OpenNoPhp,
+                        Some(latency_ms),
+                        "HTTPS open (TLS hostname error)".to_string(),
+                    );
+                }
             },
         };
 
@@ -344,13 +375,7 @@ pub async fn execute_php_probe(
                         format!("HTTPS open, write error: {}", e),
                     );
                 }
-                let mut buf = vec![0u8; 4096];
-                let n = match tokio::time::timeout(read_timeout, tls_stream.read(&mut buf)).await {
-                    Ok(Ok(n)) => n,
-                    _ => 0,
-                };
-                buf.truncate(n);
-                String::from_utf8_lossy(&buf).to_string()
+                read_http_headers(&mut tls_stream, read_timeout).await
             }
             _ => {
                 return (
@@ -584,5 +609,38 @@ mod tests {
             PhpAssessment::NoPhpHeader => PortStatus::OpenNoPhp,
         };
         assert_eq!(status, PortStatus::OpenNoPhp);
+    }
+
+    #[test]
+    fn test_parse_headers_prioritizes_vulnerable_across_multiple_headers() {
+        let headers = "HTTP/1.1 200 OK\r\nServer: Apache/2.4.62 PHP/8.3.37\r\nX-Powered-By: PHP/8.2.20\r\n\r\n";
+        assert_eq!(
+            parse_php_version_from_headers(headers),
+            PhpAssessment::Vulnerable {
+                version: "8.2.20".to_string(),
+                fixed_in: "8.2.36"
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_http_headers_handles_fragmented_segments() {
+        let (mut client, mut server) = tokio::io::duplex(256);
+        tokio::spawn(async move {
+            let _ = server.write_all(b"HTTP/1.1 200 OK\r\n").await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            let _ = server
+                .write_all(b"Server: nginx\r\nX-Powered-By: PHP/8.2.20\r\n\r\n")
+                .await;
+        });
+
+        let raw = read_http_headers(&mut client, Duration::from_millis(500)).await;
+        assert_eq!(
+            parse_php_version_from_headers(&raw),
+            PhpAssessment::Vulnerable {
+                version: "8.2.20".to_string(),
+                fixed_in: "8.2.36"
+            }
+        );
     }
 }

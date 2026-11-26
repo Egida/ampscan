@@ -84,12 +84,20 @@ pub async fn run_tui(
                         }
                         TuiEvent::ScanFinished => {
                             app.is_scanning = false;
+                            if let Some(start_inst) = app.stats.start_time {
+                                app.stats.elapsed_duration = Some(start_inst.elapsed());
+                            }
+                            app.apply_alive_ip_closure();
 
                             // If --pdf flag was supplied via CLI, generate PDF report automatically
                             if app.pdf_export {
                                 let scan_id = uuid::Uuid::new_v4().to_string();
-                                let prefixes: Vec<String> =
-                                    app.prefixes.iter().map(|p| p.prefix.clone()).collect();
+                                let prefixes: Vec<String> = if app.last_scanned_prefixes.is_empty()
+                                {
+                                    app.prefixes.iter().map(|p| p.prefix.clone()).collect()
+                                } else {
+                                    app.last_scanned_prefixes.clone()
+                                };
                                 let mut report =
                                     crate::scanner::result::ScanReport::new(scan_id, prefixes);
                                 report.check_php = app.check_php;
@@ -141,6 +149,9 @@ pub async fn run_tui(
                         }
                         TuiEvent::ScanError(msg) => {
                             app.is_scanning = false;
+                            if let Some(start_inst) = app.stats.start_time {
+                                app.stats.elapsed_duration = Some(start_inst.elapsed());
+                            }
                             app.status_message = Some(format!("Scan error: {}", msg));
                         }
                     }
@@ -171,6 +182,7 @@ pub async fn run_tui(
                         } else {
                             app.is_scanning = true;
                             app.clear_scan_data();
+                            app.last_scanned_prefixes = vec![target_str.clone()];
 
                             let db_path = app.db_path.clone();
                             let db_key = app.db_key.clone();
@@ -236,6 +248,8 @@ pub async fn run_tui(
                     if !app.is_scanning {
                         app.is_scanning = true;
                         app.clear_scan_data();
+                        app.last_scanned_prefixes =
+                            app.prefixes.iter().map(|p| p.prefix.clone()).collect();
 
                         let db_path = app.db_path.clone();
                         let db_key = app.db_key.clone();
