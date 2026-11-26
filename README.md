@@ -112,10 +112,13 @@ AmpScan includes a rich **Terminal User Interface (TUI)** built with `ratatui` a
 # 1. Standard TUI launch with database
 ampscan tui --db-path /path/to/ampscan.db
 
-# 2. Custom concurrency (1024 threads) and probe timeout (2s)
+# 2. Custom concurrency (1024 concurrent probes, range 1-10000) and probe timeout (2s, range 1-60)
 ampscan tui --db-path /path/to/ampscan.db -c 1024 -t 2
 
-# 3. TUI launch with automatic PDF report generation upon scan completion
+# 3. TUI launch with PHP RCE audit (--check-php) and custom Vhost/SNI (--http-host)
+ampscan tui --db-path /path/to/ampscan.db --check-php --http-host www.example.com
+
+# 4. TUI launch with automatic PDF report generation upon scan completion
 ampscan tui --db-path /path/to/ampscan.db -c 512 -t 2 --pdf --recipient "SOC Team" -o /var/reports/audit.pdf
 ```
 
@@ -218,14 +221,16 @@ AmpScan offers flexible scanning modes for both network-wide audits and ad-hoc s
 Tests all prefixes and ports configured in the database, or scans a manually specified CIDR prefix.
 
 **Supported parameters:**
-*   `--concurrency <N>`: Number of probes sent simultaneously (default: `256`).
-*   `--timeout <S>`: Timeout for each probe's response in seconds (default: `3`).
-*   `--retries <N>`: Number of retries for UDP probes (default: `2`).
+*   `--concurrency <N>`: Number of concurrent probes (`1..=10000`, default: `256`).
+*   `--timeout <S>`: Timeout for each probe's response in seconds (`1..=60`, default: `3`).
+*   `--retries <N>`: Number of retries for UDP probes (`0..=10`, default: `2`).
 *   `--output <PATH>`: Name of the PDF file to be generated (default: `ampscan_report.pdf`).
 *   `--prefix <CIDR>`: Manual network prefix to scan (e.g.: `192.168.1.0/24`). **Runs in Zero-DB mode if `--db-path` is omitted** (uses the built-in 23 amplification ports directly).
 *   `--check-php`: Injects passive auditing for `80/tcp` (HTTP) and `443/tcp` (HTTPS) to detect critical PHP RCE vulnerabilities (PHP2Shell CVE-2026-109618/19 & phpAfterShell CVE-2026-126714).
 *   `--http-host <HOST>`: Specifies a custom HTTP `Host` header and TLS Server Name Indication (SNI) for `--check-php` probes, bypassing CDN/WAF default vhosts.
 *   `--pdf`: Enable automatic PDF report generation.
+*   `--client-name <NAME>`: Company/client name displayed on the PDF cover.
+*   `--recipient <NAME>`: PDF report recipient (e.g., manager or department name).
 
 Database batch scan example:
 ```bash
@@ -255,16 +260,23 @@ ampscan scan single 104.21.76.221 --check-php --http-host www.example.com.br
 ampscan --db-path ampscan.db scan single 1.1.1.1
 ```
 
+#### 3. Passive PHP RCE Audit (`--check-php` & `--http-host`)
+*   **Two-Phase Non-Intrusive Probing:** Performs a fast TCP connect (capped at `1500ms`) followed by a `HEAD / HTTP/1.1` request (`1500ms` read timeout) inspecting `X-Powered-By` and `Server` headers without sending exploit payloads.
+*   **Upstream Patch Thresholds (PHP2Shell CVE-2026-109618/19 & phpAfterShell CVE-2026-126714):** Versions below `8.2.36`, `8.3.37`, `8.4.28`, `8.5.13` (and EOL branches $\le$ `8.1`) are reported as **Vulnerable**. Patched versions are reported as **Open/Protected**.
+*   **No Banner (`expose_php = Off`):** Open `80/tcp` or `443/tcp` ports without an explicit PHP version header are classified as **Open (No PHP detected)** — never declared as protected.
+*   **CDN / Reverse Proxy Routing (`--http-host`):** Injects the `Host` header and TLS SNI hostname (stripping optional `:port` per RFC 6066, with strict anti-CRLF validation).
+
 ---
 
 ## 📈 Understanding the Results
 
 During each port scan, the status can be classified as:
 
-1.  🔴 **Open (Vulnerable):** The target responded to the sent probe. It means the amplification port is open and publicly responds to external requests without filtering.
-2.  🟢 **Closed:** The host responded to at least one of the active probes, but the amplification service on this specific port yielded no response.
-3.  🔵 **Inconclusive:** The tested host did not respond to any of the sent probes, suggesting the host might be offline or entirely blocking diagnostic traffic.
-4.  🟡 **Protected:** The port is open, but it is not vulnerable.
+1.  🔴 **Open (Vulnerable):** The target responded with a valid amplification payload or an affected PHP version header.
+2.  🟡 **Open/Protected:** The port is open and active, but explicitly protected (e.g., DNS with recursion disabled, NTP `Mode 6` refusal `E=1`, or patched PHP $\ge 8.2.36 / 8.3.37 / 8.4.28 / 8.5.13$).
+3.  🔵 **Open (No PHP detected):** Web port (`80/tcp` or `443/tcp`) is open, but no PHP version banner was exposed in HTTP headers. Excluded from `Vuln`/`Prot` counters and PDF PHP advisories.
+4.  🟢 **Closed:** The host responded on at least one other port (host is alive), while this specific port yielded no response or refused connection.
+5.  ⚪ **Inconclusive:** The tested host did not respond to any of the sent probes, suggesting the host might be offline or entirely blocking diagnostic traffic.
 
 ---
 
@@ -310,15 +322,15 @@ ampscan/
 ├── CHANGELOG.md                # Project version history and detailed modification log
 ├── README.md                   # User guide, documentation, and architecture manual
 ├── src/
-│   ├── main.rs                 # CLI entrypoint, banner, and command dispatcher (~96 lines)
+│   ├── main.rs                 # CLI entrypoint, banner, and command dispatcher
 │   ├── lib.rs                  # Library root and public module exports
 │   ├── auth.rs                 # Argon2id password hashing and secure CLI prompt helpers
 │   ├── sys_limits.rs           # OS file descriptor limit management (ulimit)
 │   │
 │   ├── cli/                    # Command-line interface layer
-│   │   ├── args.rs             # Clap parser definitions (Cli, Commands, subcommands)
+│   │   ├── args.rs             # Clap parser definitions (Cli, Commands, range validators)
 │   │   ├── auth_helper.rs      # Database unlocking, key zeroization & user authentication
-│   │   ├── mod.rs              # Re-exports and string helpers
+│   │   ├── mod.rs              # Re-exports for CLI command handlers
 │   │   └── commands/           # Isolated subcommand handlers
 │   │       ├── init.rs         # Database schema creation and initial admin setup
 │   │       ├── port.rs         # Port listing, enabling, and disabling
@@ -338,8 +350,9 @@ ampscan/
 │   │   ├── mod.rs              # Concurrency semaphore (acquire-before-spawn) & IP expansion
 │   │   ├── result.rs           # ScanReport, PortStatus, and ProbeResult models
 │   │   └── probes/             # Low-level network probing
+│   │       ├── http.rs         # Passive HTTP/HTTPS PHP RCE probe (--check-php & --http-host)
 │   │       ├── transport.rs    # Connected UDP/TCP sockets, timeouts, and FD exhaustion detection
-│   │       ├── validate.rs     # Protocol inspection, Transaction ID check, and IP nibble filter
+│   │       ├── validate.rs     # Protocol inspection (DNS/NTP/SNMP/LDAP/RPC/NetBIOS/RDPEUDP)
 │   │       ├── payloads.rs     # Protocol binary payload generators and 13 unit tests
 │   │       └── mod.rs          # Probe dispatcher (execute_probe)
 │   │
@@ -361,7 +374,7 @@ ampscan/
 │           ├── cidr_scan.rs    # Subnet prefixes table
 │           ├── single_target.rs# Reactive single-host inspection form
 │           ├── port_database.rs# Registered amplification signatures table
-│           └── settings.rs     # Runtime concurrency and timeout controls
+│           └── settings.rs     # Runtime concurrency, timeout, retries, and PHP RCE controls
 ```
 
 ---
